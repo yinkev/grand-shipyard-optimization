@@ -1,0 +1,217 @@
+@page {
+  size: Letter;
+  margin: 0.68in 0.72in 0.72in 0.72in;
+}
+
+html {
+  font-family: Arial, Helvetica, sans-serif;
+  color: #172033;
+  line-height: 1.42;
+  font-size: 10.3pt;
+}
+
+body {
+  max-width: 7.05in;
+  margin: 0 auto;
+}
+
+header#title-block-header {
+  min-height: 8.25in;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  page-break-after: always;
+  text-align: left;
+}
+
+h1.title {
+  font-size: 29pt;
+  line-height: 1.08;
+  margin: 0 0 0.18in 0;
+  color: #0f2942;
+}
+
+p.subtitle {
+  font-size: 16pt;
+  color: #475569;
+  margin: 0 0 0.42in 0;
+}
+
+p.author, p.date {
+  font-size: 11pt;
+  margin: 0.04in 0;
+}
+
+div.abstract {
+  margin-top: 0.5in;
+  padding: 0.18in 0.22in;
+  background: #f1f5f9;
+  border-left: 4px solid #387ca7;
+}
+
+div.abstract-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 9pt;
+  margin-bottom: 0.08in;
+}
+
+nav#TOC {
+  page-break-after: always;
+}
+
+nav#TOC > h2 {
+  font-size: 22pt;
+  color: #0f2942;
+}
+
+nav#TOC ul {
+  list-style: none;
+  padding-left: 0.12in;
+}
+
+nav#TOC ul ul {
+  padding-left: 0.2in;
+}
+
+nav#TOC li {
+  margin: 0.045in 0;
+}
+
+nav#TOC a {
+  color: #172033;
+  text-decoration: none;
+}
+
+h1 {
+  color: #0f2942;
+  font-size: 21pt;
+  line-height: 1.15;
+  margin-top: 0;
+  padding-top: 0.05in;
+  page-break-before: auto;
+}
+
+h2 {
+  color: #1f4d6d;
+  font-size: 14.2pt;
+  margin: 0.22in 0 0.08in;
+  page-break-after: avoid;
+}
+
+h3 {
+  color: #334155;
+  font-size: 11.5pt;
+  page-break-after: avoid;
+}
+
+p {
+  margin: 0.07in 0 0.11in;
+  orphans: 3;
+  widows: 3;
+}
+
+blockquote {
+  margin: 0.16in 0.2in;
+  padding: 0.02in 0.18in;
+  border-left: 3px solid #94a3b8;
+  color: #334155;
+}
+
+code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 8.7pt;
+  background: #f1f5f9;
+  padding: 0.01in 0.035in;
+  border-radius: 3px;
+}
+
+pre {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  padding: 0.12in;
+  white-space: pre-wrap;
+  page-break-inside: avoid;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.14in 0 0.2in;
+  font-size: 8.6pt;
+  page-break-inside: avoid;
+}
+
+thead {
+  display: table-header-group;
+}
+
+th {
+  background: #e9f2f8;
+  color: #0f2942;
+  font-weight: 700;
+}
+
+th, td {
+  border: 1px solid #b9c7d3;
+  padding: 0.045in 0.055in;
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+figure {
+  margin: 0.16in auto 0.24in;
+  text-align: center;
+  page-break-inside: avoid;
+}
+
+figure img {
+  max-width: 100%;
+  max-height: 6.7in;
+}
+
+figcaption {
+  color: #475569;
+  font-size: 8.5pt;
+  margin-top: 0.06in;
+}
+
+ul, ol {
+  margin-top: 0.06in;
+  margin-bottom: 0.12in;
+  padding-left: 0.28in;
+}
+
+li {
+  margin: 0.035in 0;
+}
+
+#refs {
+  font-size: 8.6pt;
+}
+
+.csl-entry {
+  margin-bottom: 0.08in;
+  padding-left: 0.22in;
+  text-indent: -0.22in;
+}
+
+a {
+  color: #1d628b;
+  text-decoration: none;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid #cbd5e1;
+}
