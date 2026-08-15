@@ -1,27 +1,24 @@
-# Reproducibility and release boundary
+# Public source and validation boundary
 
-This repository is a source-only public artifact. It preserves the final Python
-portfolio and C++/pybind11 geometry-kernel source, but deliberately omits:
+This repository publishes participant-authored source, documentation, and the
+transcribed organizer evaluation history. It contains the final Python portfolio
+and C++/pybind11 geometry-kernel source. Organizer-owned challenge materials are not
+redistributed, and private participant records remain outside the public release.
 
-- the organizer problem statement, checker, and evaluation instances;
-- the exact submitted ZIP and its compiled CPython 3.12 Linux extension;
-- organizer emails, leaderboard captures, and the participation certificate;
-- private experimental traces, candidate worktrees, and ResearchLab run packets.
-
-The private submission ZIP is bound by SHA-256 in `source-manifest.json`. The seven
-released Python files under `solver/final-release/` are byte-identical to the
+The private submission package is bound by SHA-256 in `source-manifest.json`. The
+seven released Python files under `solver/final-release/` are byte-identical to the
 submitted source members. The released native-kernel source builds and passes a
-randomized reference-equivalence test, but a byte-for-byte reproduction of the
-submitted Linux binary is not claimed because the full original build-container
-identity was not preserved.
+randomized reference-equivalence test. The public release intentionally ships
+source rather than the private competition package.
 
 The corrected result history under `results/official-evaluation-history.csv` was
 rebuilt from direct organizer completed-evaluation emails. The public repository
-contains the numerical transcription and its hash, not the private messages. The
-sequence numbers are retrospective chronological labels, not organizer-assigned
-submission identifiers.
+contains the numerical transcription and its hash; the private messages remain in
+the evidence archive. The sequence numbers are retrospective chronological labels,
+not organizer-assigned submission identifiers.
 
-The full solver expects the organizer-provided `utils` module and challenge data.
-Without those materials, this repository can validate source integrity, protocol
-behavior, worker topology, deterministic asset generation, and the native geometry
-primitive, but it cannot reproduce private official scores.
+The full solver imports the organizer-provided `utils` module when executed in the
+challenge environment. Public tests therefore validate the released components:
+source integrity, protocol behavior, worker topology, deterministic asset
+generation, and the native geometry primitive. Official hidden-evaluation results
+are represented by the organizer-issued result records transcribed under `results/`.

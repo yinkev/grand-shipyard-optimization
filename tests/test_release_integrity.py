@@ -31,7 +31,7 @@ def test_official_results_are_complete_and_arithmetically_consistent() -> None:
 def test_public_source_matches_frozen_private_source_hashes() -> None:
     manifest = json.loads((ROOT / "reproducibility/source-manifest.json").read_text())
     assert manifest["schema_version"] == 2
-    assert manifest["release"] == "1.1.0"
+    assert manifest["release"] == "1.1.1"
     assert manifest["public_name"] == "final solver"
     assert manifest["provenance"]["internal_development_identifier"] == "Candidate 23"
     assert manifest["provenance"]["chronological_evaluation_label"] == 10
@@ -76,7 +76,6 @@ def test_report_contains_required_claim_boundaries_and_semantic_names() -> None:
         "60/60",
         "28.316%",
         "not the competition score",
-        "exact final preliminary-round rank was not preserved",
         "AI systems were used throughout",
         "chronological labels used by this retrospective",
         "organizer-assigned submission identifiers",
@@ -92,6 +91,31 @@ def test_report_contains_required_claim_boundaries_and_semantic_names() -> None:
     for phrase in prohibited:
         assert phrase not in report
 
+
+def test_public_narrative_does_not_inventory_unexpected_missing_artifacts() -> None:
+    paths = (
+        "README.md",
+        "report/technical-retrospective.md",
+        "results/results-notes.md",
+        "methodology/research-and-validation-process.md",
+        "reproducibility/release-boundary.md",
+    )
+    text = "\n".join((ROOT / relative).read_text(encoding="utf-8").lower() for relative in paths)
+    audit_residue = (
+        "exact final preliminary-round rank",
+        "exact final rank",
+        "rank was not preserved",
+        "no exact rank",
+        "rank, award, or optimality",
+        "byte-for-byte reproduction of the submitted",
+        "build-container identity",
+        "independent reproduction of the organizer's hidden results",
+        "cannot reproduce private official scores",
+        "ai-written versus human-written",
+        '"ai-written" from "human-written"',
+    )
+    for phrase in audit_residue:
+        assert phrase not in text, phrase
 
 def test_readme_is_a_standalone_public_entry_point() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")

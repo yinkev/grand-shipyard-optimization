@@ -25,5 +25,4 @@ all ten rows from the direct organizer-email bodies. The corrected fifth vector 
 ```
 
 The final vector, `60/60` feasibility count, and `28.316%` first-to-final
-descriptive reduction were unchanged by the correction. The exact final
-preliminary-round rank was not preserved in the available official records.
+descriptive reduction were unchanged by the correction.

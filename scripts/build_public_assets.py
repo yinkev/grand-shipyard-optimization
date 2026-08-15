@@ -82,7 +82,7 @@ def write_manifest() -> None:
     verify_frozen_source_hashes(ROOT)
     payload = {
         "schema_version": 2,
-        "release": "1.1.0",
+        "release": "1.1.1",
         "public_name": "final solver",
         "provenance": {
             "internal_development_identifier": "Candidate 23",
@@ -103,11 +103,9 @@ def write_manifest() -> None:
         "submitted_binary_released": False,
         "released_source_sha256": dict(sorted(FROZEN_SOURCE_SHA256.items())),
         "excluded_material": [
-            "organizer problem statement",
-            "organizer checker and evaluation instances",
-            "participant correspondence and certificate",
-            "exact submission ZIP",
-            "compiled Linux CPython 3.12 extension",
+            "organizer-owned challenge materials",
+            "participant correspondence and credential",
+            "private competition package and compiled extension",
             "private experiment corpus and ResearchLab runs",
         ],
     }

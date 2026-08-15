@@ -6,11 +6,9 @@
     "sha256": "9efac129fe64083bb8dfc041a0f131db67dbbb39e7b5f55de7376ab9a932ba30"
   },
   "excluded_material": [
-    "organizer problem statement",
-    "organizer checker and evaluation instances",
-    "participant correspondence and certificate",
-    "exact submission ZIP",
-    "compiled Linux CPython 3.12 extension",
+    "organizer-owned challenge materials",
+    "participant correspondence and credential",
+    "private competition package and compiled extension",
     "private experiment corpus and ResearchLab runs"
   ],
   "private_submission_zip_sha256": "0b3442ebc2513cd0bedece780f33331f719293513667f075bb3cface08c4cf4e",
@@ -23,7 +21,7 @@
     "private_release_tag": "candidate23-release-20260727"
   },
   "public_name": "final solver",
-  "release": "1.1.0",
+  "release": "1.1.1",
   "released_source_sha256": {
     "solver/final-release/c19_protocol.py": "eb10a979c47f73c02c84426c19d13f3361885987199eca6ed8fc5a500a1d9fc8",
     "solver/final-release/c19_workers.py": "c99d487a490fb2673bbfeb8c86a892982128b8dc36f9cec7db7ccd948e0d5023",

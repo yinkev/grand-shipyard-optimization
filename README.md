@@ -63,14 +63,13 @@ retrospective; they are not organizer-assigned submission identifiers.
 | First descriptive raw sum | 91,216,059 |
 | Final descriptive raw sum | 65,387,303 |
 | Descriptive reduction | **28.316%** |
-| Exact final rank | Not preserved in the available official records |
 
 The corrected row-level history is in
 [`results/official-evaluation-history.csv`](results/official-evaluation-history.csv).
-Public v1.1 rebuilds all ten rows from the direct organizer result emails retained
-in the private evidence archive. Public v1.0 contained an unsupported intermediate
-history; its final vector and first-to-final summary were correct, but v1.1 is the
-current authority.
+Beginning with public v1.1, all ten rows are rebuilt from the direct organizer
+result emails retained in the private evidence archive. Public v1.0 contained an
+unsupported intermediate history; its final vector and first-to-final summary were
+correct. The current release carries the corrected history forward.
 
 ![Official evaluation history](figures/submission-progression.svg)
 
@@ -101,10 +100,11 @@ report/                  Markdown source, references, and PDF
 ```
 
 The seven Python files under `solver/final-release/` are byte-identical to the
-frozen final package. The submitted binary and exact ZIP remain private; their
-SHA-256 identities are recorded in
+submitted source members. The native-kernel source builds and is behaviorally
+tested. This public release contains participant-authored source and documentation;
+organizer-owned challenge materials and the private competition package are not
+redistributed. Exact private artifact identities remain recorded in
 [`reproducibility/source-manifest.json`](reproducibility/source-manifest.json).
-Organizer problem data and checker code are intentionally excluded.
 
 ```bash
 python -m venv .venv
@@ -122,10 +122,10 @@ submission decisions, stop decision, and final claim boundary.
 
 **AI-assisted** systems were used throughout literature synthesis, implementation,
 testing, experiment execution, adversarial review, evidence processing, and
-documentation. The project did not preserve a defensible source-level percentage
-for AI-written versus human-written code. Model agreement was never treated as
-empirical validation; frozen artifacts, checker results, measured runs, and Kevin
-Yin's promotion and submission decisions remained the governing evidence.
+documentation. Responsibility is stated at the decision and process level rather
+than reduced to line-by-line authorship percentages. Model agreement was never
+treated as empirical validation; frozen artifacts, checker results, measured runs,
+and Kevin Yin's promotion and submission decisions remained the governing evidence.
 
 ## Exact provenance
 
