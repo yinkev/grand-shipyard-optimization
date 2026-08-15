@@ -147,10 +147,10 @@ The high-pressure topology was eligible only when `pressure >= 0.70` and the
 instance contained at least `250` blocks; otherwise the lower-pressure topology
 was used. A memory estimate could also force the lower-pressure path. These were
 frozen deployment thresholds derived from the project's supplied-instance
-measurements. The report does **not** claim that this gate is an optimal algorithm
-selector or that hidden evaluation isolates its causal contribution; it chooses
-between two fixed CPU configurations whose contention behavior had been measured
-locally.
+measurements. They are heuristic deployment rules rather than a learned selector;
+the hidden evaluation does not isolate the gate's causal contribution. The gate
+chooses between two fixed CPU configurations whose contention behavior had been
+measured locally.
 
 ### Lower-pressure topology
 
@@ -465,9 +465,8 @@ the intermediate trajectory and the attribution of several improvements.
 Ten successive solver versions received organizer evaluation on the same six hidden
 evaluation cells. The sequence numbers below are **chronological labels used by
 this retrospective**, not **organizer-assigned submission identifiers**. The
-organizer-issued result emails are retained privately; the public release provides
-source-level traceability and the transcribed evaluation history, not independent
-reproduction of those hidden evaluations.
+organizer-issued result emails are retained privately; the public release
+transcribes those official results and binds the transcription by hash.
 
 ## 5.2 Ten-evaluation record
 
@@ -527,13 +526,8 @@ and P5 relative to the ninth while worsening P4 and P6. Its descriptive raw sum
 was the lowest of the ten, but it did not dominate the eighth instance by
 instance.
 
-P1 and P2 were unchanged across all ten evaluations. The preserved result emails do
-not expose enough hidden-instance diagnostics to determine whether that constancy
-reflects optimality, routing stability, or lack of improvement opportunity, so the
-report does not infer a cause.
-
-The **exact final preliminary-round rank was not preserved** in the available
-official records. This report makes no rank, award, or optimality claim.
+P1 and P2 were unchanged across all ten evaluations. The organizer result records
+do not diagnose why, so the report leaves that constancy uninterpreted.
 
 # 6. Contributions and AI-assisted development
 
@@ -555,13 +549,12 @@ Kevin Yin retained responsibility for:
 
 AI systems were used throughout literature synthesis, source inspection,
 implementation, test construction, experiment-execution support, adversarial
-review, evidence normalization, and documentation. The project did not preserve a
-defensible source-level percentage that would separate "AI-written" from
-"human-written" code, so this report does not invent one. Multiple agents and
-models were used to obtain independent perspectives, but model agreement was never
-treated as empirical validation. Accepted checker results, frozen artifacts,
-measured runs, and Kevin Yin's promotion/submission decisions remained the
-governing evidence.
+review, evidence normalization, and documentation. Responsibility is stated at the
+decision and process level rather than reduced to line-by-line authorship
+percentages. Multiple agents and models were used to obtain independent
+perspectives, but model agreement was never treated as empirical validation.
+Accepted checker results, frozen artifacts, measured runs, and Kevin Yin's
+promotion/submission decisions remained the governing evidence.
 
 The competition explicitly allowed AI-assisted development while assigning quality
 and correctness responsibility to participants. This report presents that
@@ -575,26 +568,19 @@ and hidden evaluations belonged to the organizer. The public repository does not
 redistribute those materials. Source files import the organizer's `utils` module
 when executed inside the challenge environment.
 
-# 7. Reproducibility boundary
+# 7. Public source and validation boundary
 
 The public release provides **source traceability and component-level
-reproducibility**, not independent reproduction of the organizer's hidden results.
-It contains the seven Python files included in the final submitted package,
-byte-identical to their frozen private versions, plus the C++/pybind11
+validation**. It contains the seven Python files included in the final submitted
+package, byte-identical to their frozen private versions, plus the C++/pybind11
 geometry-kernel source and randomized equivalence tests.
 
-The following are intentionally absent:
-
-- organizer problem and evaluation data;
-- organizer checker;
-- exact submission ZIP;
-- compiled Linux CPython 3.12 extension;
-- private emails, certificate, screenshots, and raw experiment corpora.
-
-The exact private ZIP and submitted binary are identified by SHA-256 in the source
-manifest. A byte-for-byte reproduction of the submitted native extension is not
-claimed because the complete original build-container identity was not preserved.
-The source can be rebuilt and behaviorally tested; that is a narrower claim.
+The release is intentionally limited to participant-authored source and
+documentation. Organizer-owned challenge materials are not redistributed, and the
+private competition package, correspondence, credential, and raw experiment corpus
+remain in the private evidence archive. Exact private artifact identities are bound
+by SHA-256 in the source manifest. The native-kernel source can be rebuilt and
+behaviorally tested from the public repository.
 
 The corrected result CSV is generated from an immutable in-repository matrix whose
 private authority is the direct organizer-email reconciliation. Consecutive asset
@@ -634,10 +620,9 @@ workers to search more aggressively.
 
 The final solver closed the campaign with six feasible official outputs, a `60/60`
 campaign feasibility record, and the lowest descriptive raw six-instance sum of
-the ten chronological evaluations. The project does not support a stronger claim
-about rank, optimality, or universal transfer. Its durable contribution is the
-architecture, the evidence discipline around it, and the negative results that
-made the final system smaller and more reliable.
+the ten chronological evaluations. Its durable contribution is the architecture,
+the evidence discipline around it, and the negative results that made the final
+system smaller and more reliable.
 
 The title is literal in more than one direction. A shipyard block can obstruct a
 future EXIT if placement ignores crane access. An optimization process can block
@@ -668,6 +653,6 @@ the conceptual vocabulary of the main report.
 | Submitted native extension SHA-256 | `a1f0309bc7d30a6482528bf9a6b52107e02e622365a33c1517d65fbaa1636737` |
 | Private evidence-correction commit | `7841de97e22ce753667abfa236f76836c57511d3` |
 | Private evidence-correction tag | `ogc2026-evaluation-history-erratum-v1.0` |
-| Public release | `v1.1.0` |
+| Public release | `v1.1.1` |
 
 # References

@@ -61,5 +61,3 @@ Public claims follow this order:
 Public v1.1 applies this rule to the result history itself. All ten rows were
 reconciled against the direct completed-evaluation emails after v1.0 was found to
 contain unsupported intermediate values.
-
-No exact rank, award, finalist, or optimality claim is made.
