@@ -9,6 +9,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FIGURES = ROOT / "figures"
 
+FROZEN_SOURCE_SHA256 = {
+    "solver/submission-10/c19_protocol.py": "eb10a979c47f73c02c84426c19d13f3361885987199eca6ed8fc5a500a1d9fc8",
+    "solver/submission-10/c19_workers.py": "c99d487a490fb2673bbfeb8c86a892982128b8dc36f9cec7db7ccd948e0d5023",
+    "solver/submission-10/candidate11_core.py": "d1902d6d2ef9d450eda73d6493a389fbaa031e60876bad33a1e83536a5912ed0",
+    "solver/submission-10/candidate19_core.py": "104859099032abbdb1062b9e5061c032bc389af4e816b1aca9367929bfbdd3d6",
+    "solver/submission-10/frontier_offense.py": "56d2f830d2f2bd708f0b42b1c3eef7dc35fd8b1b1e2fb4a63ebf7d2371b0d619",
+    "solver/submission-10/myalgorithm.py": "238e8138a97e750c19c2bff176e3f59cf40eaa79733c32fc6d80d098e3ea3467",
+    "solver/submission-10/submission8_floor.py": "993a3242eaa828260b7ed52cfe5b8cd425240c310c9af4cdb6493d0d628bf309",
+    "solver/native-kernel/feasible_map_core.cpp": "a15c6c43c47deb81412126e4434ff61b2a266543fcc5cfb3acf4efe9f5fb1e1c",
+    "solver/native-kernel/feasible_map_core.hpp": "ed5822a9de7415662d7e766aaad308e0a243c7c99c9a82c96b8b20b11f4263c8",
+    "solver/native-kernel/module.cpp": "d1f2139480c016e039b9aba94df4c556adaade93c84a63d59406ae5b2d79b130",
+    "solver/native-kernel/setup.py": "fb9cf91f62bdd420812ff45582f1132b8d1433e7e4a45fa65698f7a938ce374c",
+}
+
 SUBMISSIONS = [
     (1, "2026-06-21 18:05:18", [11280, 31368, 130705, 10153470, 28945493, 51943743], "Initial feasible baseline"),
     (2, "2026-06-25 16:25:35", [11280, 31368, 130705, 10153470, 28945493, 51943743], "Zero-loss retest"),
@@ -27,6 +41,20 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def verify_frozen_source_hashes(root: Path = ROOT) -> None:
+    drift = []
+    for relative, expected in FROZEN_SOURCE_SHA256.items():
+        path = root / relative
+        if not path.is_file():
+            drift.append(f"missing:{relative}")
+            continue
+        actual = sha256(path)
+        if actual != expected:
+            drift.append(f"hash:{relative}:{actual}")
+    if drift:
+        raise RuntimeError("frozen source drift: " + "; ".join(drift))
+
+
 def write_results() -> None:
     path = ROOT / "results/official-submissions.csv"
     with path.open("w", newline="", encoding="utf-8") as handle:
@@ -40,16 +68,7 @@ def write_results() -> None:
 
 
 def write_manifest() -> None:
-    source_paths = [
-        *(Path("solver/submission-10") / name for name in (
-            "myalgorithm.py", "submission8_floor.py", "candidate19_core.py",
-            "candidate11_core.py", "c19_protocol.py", "c19_workers.py",
-            "frontier_offense.py",
-        )),
-        *(Path("solver/native-kernel") / name for name in (
-            "module.cpp", "feasible_map_core.cpp", "feasible_map_core.hpp", "setup.py",
-        )),
-    ]
+    verify_frozen_source_hashes(ROOT)
     payload = {
         "schema_version": 1,
         "release": "1.0.0",
@@ -61,9 +80,7 @@ def write_manifest() -> None:
         "private_submission_zip_sha256": "0b3442ebc2513cd0bedece780f33331f719293513667f075bb3cface08c4cf4e",
         "submitted_binary_sha256": "a1f0309bc7d30a6482528bf9a6b52107e02e622365a33c1517d65fbaa1636737",
         "submitted_binary_released": False,
-        "released_source_sha256": {
-            str(path): sha256(ROOT / path) for path in source_paths
-        },
+        "released_source_sha256": dict(sorted(FROZEN_SOURCE_SHA256.items())),
         "excluded_material": [
             "organizer problem statement",
             "organizer checker and evaluation instances",
@@ -76,7 +93,6 @@ def write_manifest() -> None:
     (ROOT / "reproducibility/source-manifest.json").write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
-
 
 def _diagram_canvas(title: str, figsize=(10.5, 5.6)):
     import matplotlib.pyplot as plt
@@ -227,12 +243,23 @@ def render_submission_figure() -> None:
     plt.close(fig)
 
 
+def normalize_svg(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    normalized = "\n".join(line.rstrip() for line in text.splitlines()) + "\n"
+    path.write_text(normalized, encoding="utf-8")
+
+
 def main() -> None:
+    import matplotlib as mpl
+
+    mpl.rcParams["svg.hashsalt"] = "grand-shipyard-v1.0.0"
     FIGURES.mkdir(exist_ok=True)
     write_results()
     write_manifest()
     render_graphviz()
     render_submission_figure()
+    for path in sorted(FIGURES.glob("*.svg")):
+        normalize_svg(path)
 
 
 if __name__ == "__main__":

@@ -7,3 +7,4 @@ pybind11>=2.13
 matplotlib>=3.9
 setuptools>=75
 wheel>=0.44
+pikepdf>=10.11

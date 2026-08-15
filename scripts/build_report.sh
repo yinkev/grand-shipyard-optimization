@@ -30,6 +30,7 @@ wkhtmltopdf \
   --footer-spacing 5 \
   "$REPORT/_build/technical-retrospective.html" \
   "$REPORT/technical-retrospective.pdf"
+"$ROOT/.venv/bin/python" "$ROOT/scripts/normalize_pdf.py" "$REPORT/technical-retrospective.pdf"
 pdfinfo "$REPORT/technical-retrospective.pdf" > "$REPORT/_build/pdfinfo.txt"
 pdftotext "$REPORT/technical-retrospective.pdf" "$REPORT/_build/technical-retrospective.txt"
 pdftoppm -png -r 145 "$REPORT/technical-retrospective.pdf" "$REPORT/_rendered/page" >/dev/null 2>&1
