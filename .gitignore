@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.so
+*.dylib
+*.dll
+build/
+dist/
+*.egg-info/
+report/_build/
+report/_rendered/
+.DS_Store

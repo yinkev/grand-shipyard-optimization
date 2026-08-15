@@ -1,0 +1,9 @@
+[project]
+name = "grand-shipyard-optimization"
+version = "1.0.0"
+description = "Technical retrospective and source release for Team Smoop's OGC 2026 Grand Shipyard solver"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
