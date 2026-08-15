@@ -22,17 +22,17 @@ def load_kernel():
 
 
 def reference(forbidden, masks, H, W, h, w, ox, oy, x_lo, x_hi, y_lo, y_hi):
-    rows = max(0, x_hi - x_lo + 1)
-    cols = max(0, y_hi - y_lo + 1)
+    rows = max(0, y_hi - y_lo + 1)
+    cols = max(0, x_hi - x_lo + 1)
     result = np.zeros((rows, cols), dtype=bool)
-    for i, x in enumerate(range(x_lo, x_hi + 1)):
-        for j, y in enumerate(range(y_lo, y_hi + 1)):
-            legal = 0 <= x + ox and x + ox + h <= H and 0 <= y + oy and y + oy + w <= W
+    for i, y in enumerate(range(y_lo, y_hi + 1)):
+        for j, x in enumerate(range(x_lo, x_hi + 1)):
+            legal = 0 <= y + oy and y + oy + h <= H and 0 <= x + ox and x + ox + w <= W
             if not legal:
                 continue
             ok = True
             for f, mask in zip(forbidden, masks, strict=True):
-                region = f[x + ox:x + ox + h, y + oy:y + oy + w]
+                region = f[y + oy:y + oy + h, x + ox:x + ox + w]
                 if np.any(region & mask):
                     ok = False
                     break
@@ -47,8 +47,9 @@ def test_compiled_kernel_matches_reference_on_random_cases():
         H, W, h, w, layers = 12, 17, 4, 5, 3
         forbidden = [rng.random((H, W)) < 0.18 for _ in range(layers)]
         masks = [rng.random((h, w)) < 0.45 for _ in range(layers)]
-        actual = kernel.feasible_map_bitset(
-            forbidden, masks, H, W, h, w, 0, 0, 0, H - h, 0, W - w
+        actual, x_lo, y_lo = kernel.feasible_map_bitset(
+            forbidden, masks, H, W, h, w, 0, 0, 0, W - w, 0, H - h
         )
-        expected = reference(forbidden, masks, H, W, h, w, 0, 0, 0, H - h, 0, W - w)
+        expected = reference(forbidden, masks, H, W, h, w, 0, 0, 0, W - w, 0, H - h)
+        assert (x_lo, y_lo) == (0, 0)
         assert np.array_equal(actual, expected)

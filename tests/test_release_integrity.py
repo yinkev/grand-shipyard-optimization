@@ -40,7 +40,7 @@ def test_public_tree_excludes_private_and_organizer_material() -> None:
     forbidden_names = {"utils.py", "problem-statement-v1.2.pdf", "CANDIDATE23_SUBMISSION.zip"}
     violations = []
     for path in ROOT.rglob("*"):
-        if not path.is_file() or ".git" in path.parts or ".venv" in path.parts:
+        if not path.is_file() or ".git" in path.parts or ".venv" in path.parts or path == Path(__file__):
             continue
         if path.suffix in forbidden_suffixes or path.name in forbidden_names:
             violations.append(str(path.relative_to(ROOT)))

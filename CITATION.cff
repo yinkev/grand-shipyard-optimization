@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this technical retrospective or source release, cite it as below."
+title: "Engineering a Reliable Anytime Solver for the OGC 2026 Grand Shipyard Challenge"
+type: software
+authors:
+  - family-names: Yin
+    given-names: Kevin
+version: 1.0.0
+date-released: 2026-08-15
+repository-code: "https://github.com/yinkev/grand-shipyard-optimization"
+url: "https://github.com/yinkev/grand-shipyard-optimization"
+license: Apache-2.0
+keywords:
+  - combinatorial optimization
+  - irregular packing
+  - scheduling
+  - heuristic search
+  - anytime algorithms
+  - algorithm engineering

@@ -15,5 +15,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements-dev.txt
-      - run: python solver/native-kernel/setup.py build_ext --inplace
+      - name: Build native geometry kernel
+        working-directory: solver/native-kernel
+        run: python setup.py build_ext --inplace
       - run: pytest

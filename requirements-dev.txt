@@ -1,4 +1,9 @@
 pytest==9.0.3
 numpy>=2.0
+scipy>=1.14
+ortools>=9.10
+threadpoolctl>=3.5
 pybind11>=2.13
 matplotlib>=3.9
+setuptools>=75
+wheel>=0.44
