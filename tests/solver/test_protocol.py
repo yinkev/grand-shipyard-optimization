@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 
-PROTOCOL = Path(__file__).resolve().parents[2] / "solver/submission-10/c19_protocol.py"
+PROTOCOL = Path(__file__).resolve().parents[2] / "solver/final-release/c19_protocol.py"
 
 
 def load_protocol(name: str = "c19_protocol_test"):

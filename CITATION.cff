@@ -1,11 +1,11 @@
 cff-version: 1.2.0
 message: "If you use this technical retrospective or source release, cite it as below."
-title: "Engineering a Reliable Anytime Solver for the OGC 2026 Grand Shipyard Challenge"
+title: "Don't Block Your Own Exit: Engineering a Reliable Anytime Solver for the OGC 2026 Grand Shipyard Challenge"
 type: software
 authors:
   - family-names: Yin
     given-names: Kevin
-version: 1.0.0
+version: 1.1.0
 date-released: 2026-08-15
 repository-code: "https://github.com/yinkev/grand-shipyard-optimization"
 url: "https://github.com/yinkev/grand-shipyard-optimization"

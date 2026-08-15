@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 
-PACKAGE = Path(__file__).resolve().parents[2] / "solver/submission-10"
+PACKAGE = Path(__file__).resolve().parents[2] / "solver/final-release"
 MODULE_PATH = PACKAGE / "myalgorithm.py"
 
 

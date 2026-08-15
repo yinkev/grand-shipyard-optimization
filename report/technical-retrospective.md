@@ -1,26 +1,25 @@
 ---
-title: "Engineering a Reliable Anytime Solver for the OGC 2026 Grand Shipyard Challenge"
-subtitle: "Technical Retrospective of Team Smoop's Optimization Campaign"
+title: "Don't Block Your Own Exit: Engineering a Reliable Anytime Solver for the OGC 2026 Grand Shipyard Challenge"
 author: "Kevin Yin"
 date: "August 15, 2026"
 bibliography: references.bib
 link-citations: true
-lang: en-US
 abstract: |
   The OGC 2026 Grand Shipyard challenge coupled irregular multilayer packing,
   temporal residence, bay assignment, weighted tardiness, workload balance,
   bay preferences, and directional crane precedence under a four-core hard
-  deadline. This report documents the design and evolution of Team Smoop's
-  anytime solver. The final submission used a deterministic regime gate,
-  current-run worker portfolio, compiled geometry primitive, checker-gated
-  incumbent protocol, protected feasible fallback, calendar construction, and
-  joint space-time repair. Across ten official submissions, all 60 hidden
-  outputs were feasible. The descriptive raw objective sum decreased from
-  91,216,059 to 65,387,303, a 28.316% reduction; that sum is not the
-  competition score. The report emphasizes the mechanisms that survived,
-  the negative experiments that changed the system, and the reliability
-  controls needed to make heuristic improvement usable under a catastrophic
-  infeasibility and timeout penalty.
+  deadline. The engineering problem was therefore larger than either scheduling
+  or packing: a temporally attractive calendar could be geometrically
+  unrealizable, a collision-free layout could violate crane access, and a strong
+  search trajectory was worthless if it failed to return a checked solution in
+  time. This report reconstructs a four-core anytime solver that selects between
+  two fixed search topologies, accepts only complete current-run candidates, and
+  preserves an independently checkable incumbent before the deadline. Across ten
+  chronological organizer evaluations, all 60 hidden outputs were feasible. The
+  report emphasizes the evidence that changed the architecture, the negative
+  results that prevented wasted implementation, and the reliability controls
+  required to make heuristic improvement usable. Cross-instance raw sums are
+  reported later only as descriptive analysis, not as competition score.
 ---
 
 # Project at a glance
@@ -29,195 +28,207 @@ abstract: |
 |---|---|
 | Competition | Optimization Grand Challenge 2026, Grand Shipyard |
 | Participant | Kevin Yin, Team Smoop |
-| Final solver | Candidate 23, submitted as Submission 10 |
+| Problem class | Coupled irregular packing, temporal scheduling, and crane-access realization |
 | Compute envelope | CPU-only, four cores, 16 GB memory, approximately 60 seconds per instance |
-| Official campaign record | Ten submissions, 60/60 hidden outputs feasible |
+| Final architecture | Regime-gated current-run portfolio with a protected feasible path and checker-gated selection |
+| Official campaign record | Ten chronological evaluations; 60/60 hidden outputs feasible |
 | Final official vector | 11,280; 31,368; 103,065; 6,464,170; 16,443,998; 42,333,422 |
-| Descriptive progression | Raw six-instance sum reduced 28.316% from first to final submission |
-| Public release | Final Python source and native-kernel source; no organizer data, checker, exact ZIP, or submitted binary |
+| Public release | Final Python source, native-kernel source, report, corrected result history, and reproducibility tests |
 
-The challenge was announced as a worldwide optimization competition and framed
-around a shipyard planning problem with operational constraints and a restricted
-evaluation environment [@lgcns2026ogc]. The official problem specification made
-feasibility a first-order requirement: an infeasible output, process failure, or
-timeout received a score of `-1` [@ogc2026problem2026]. That penalty changed the
-engineering objective. A solver that occasionally found a superior schedule but
-sometimes failed was not a viable competitor. The relevant product was an
-**anytime feasible system** whose search quality improved without weakening its
-ability to return a validated schedule before the deadline.
+The competition imposed a first-order feasibility requirement: an infeasible
+output, crash, process failure, or timeout received a score of `-1`
+[@ogc2026problem2026]. That penalty changed what counted as an optimization
+algorithm. The useful product was not merely a search procedure that could
+occasionally find a superior schedule. It was an **anytime feasible system** that
+could search aggressively while preserving a validated return path.
 
-The final public artifact is deliberately narrower than the private campaign
-archive. It contains the technical retrospective, official result transcription,
-selected methodology, final source, native geometry source, and reproducibility
-boundaries. It does not publish the organizer's intellectual property or private
-participant records.
+The public artifact is deliberately narrower than the private campaign archive.
+It contains the final technical account, corrected official result history,
+selected methodology, frozen source, and reproducibility boundaries. It excludes
+organizer data and checker code, correspondence, raw experiment corpora, the
+certificate, the exact submitted ZIP, and the compiled submitted extension.
 
-![Candidate 23 portfolio architecture.](../figures/architecture.png){#fig:architecture width=100%}
+![Final solver architecture.](../figures/architecture.png){#fig:architecture width=100%}
 
-# 1. Problem structure
+# 1. One realization problem, not two independent subproblems
 
 ## 1.1 Decision surface
 
-Each block had to be assigned a bay, orientation, integer anchor, entry day, and
-exit day. The schedule determined when the block occupied shipyard space. The
-placement determined which cells and layers it occupied. Operations on the same
-day had to respect ordering and crane-access rules. The objective combined three
-terms:
+Each block required a bay, orientation, integer anchor, entry day, exit day, and
+operation order. The selected interval determined when the block occupied
+shipyard space. Same-day operations also had to respect directional crane access
+and precedence; when EXIT and ENTRY operations shared a day, EXIT operations were
+ordered first. The objective combined:
 
 1. weighted tardiness;
 2. workload imbalance across bays;
 3. loss relative to bay preferences.
 
-This produced a coupled space-time optimization problem. A temporally attractive
-assignment could be geometrically unrealizable. A collision-free static layout
+The challenge semantics therefore coupled time, placement, and operation order in
+one feasibility test. A low-tardiness calendar could become impossible when several
+blocks competed for the same physical cells. A collision-free static arrangement
 could become invalid when residence intervals overlapped. A schedule and layout
-that were individually valid could still violate directional crane reachability
-or same-day precedence.
+that looked acceptable under separate partial checks could still violate crane
+reachability or same-day operation order.
 
-Irregular packing research commonly uses no-fit representations, rasterized
-occupancy, discrete anchor models, coordinate descent, and hybrid exact-heuristic
-methods [@toledo2013dottedboard; @mundim2017nfr; @mundim2018limitedcontainers;
-@umetani2022coordinatedescent; @gomes2006hybrid]. The Grand Shipyard problem added
-a temporal and operational layer. Work on spatial shipbuilding schedules and
+Irregular-packing work commonly relies on no-fit representations, rasterized
+occupancy, discrete anchor models, coordinate descent, and exact-heuristic hybrids
+[@toledo2013dottedboard; @mundim2017nfr; @mundim2018limitedcontainers;
+@umetani2022coordinatedescent; @gomes2006hybrid]. The Grand Shipyard challenge
+added a temporal and operational layer. Work on spatial shipbuilding schedules and
 block relocation reinforces why placement cannot be optimized independently of
 future access and operational sequence [@ge2021irregularblocks; @kim2006enar].
 
 ![Constraint coupling.](../figures/constraint-coupling.png){#fig:coupling width=100%}
 
-## 1.2 Why decomposition repeatedly failed
+## 1.2 Why schedule-first decomposition repeatedly broke
 
-A tempting architecture is:
+A tempting pipeline is:
 
 ```text
-schedule first -> place blocks -> repair collisions -> return
+optimize calendar -> place blocks -> repair collisions -> return
 ```
 
-That pipeline was useful as a constructor, but insufficient as a complete search
-model. The decoder had to answer a joint question:
+That pipeline was useful as a constructor, but it was insufficient as a complete
+search model in this implementation. Timing-only experiments produced lower-cost
+calendar states that could not survive the canonical realization/checker path; the
+failure was therefore a design observation from this project, not a proof that
+all decomposed methods are inferior. The decoder still had to answer a joint
+question:
 
 > Can this bay, date, orientation, anchor, residence interval, and operation order
 > coexist with the frozen outside state and remain crane-realizable?
 
-When the answer was no, changing only one dimension often preserved the actual
-cause of failure. Delaying a block could create a new tardiness loss without
-opening a valid spatial route. Moving a block could create a future crane blocker.
-Changing a bay could improve preference but worsen the global load-range term.
-The later solver therefore treated a placement as a **space-time column** rather
-than an isolated coordinate.
+When the answer was no, changing only one coordinate often preserved the actual
+cause of failure. Delaying a block could create new tardiness without opening a
+valid spatial route. Moving a block could improve placement but create a later
+crane obstruction. Reassigning a bay could improve preference while worsening the
+load-range term. The later solver therefore treated a placement as a **space-time
+column**, not as an isolated spatial coordinate.
 
-## 1.3 Hard-deadline consequences
+## 1.3 Reliability consumed optimization budget
 
-The evaluation envelope imposed three system requirements beyond optimization
-quality:
+The hard deadline made process behavior part of the algorithm. CPU allocation,
+serialization, validation, signal handling, cleanup, and fallback reserves all
+consumed time that could otherwise have gone to search. But eliminating those
+reserves would have made the objective comparison meaningless: an unreturned or
+invalid improvement had zero competitive value.
 
-- A useful incumbent had to exist early.
-- Experimental work had to be interruptible without corrupting the incumbent.
-- Process startup, native libraries, child cleanup, serialization, and final
-  checking all consumed the same wall budget as search.
+The final design therefore separated two states:
 
-This is the same broad phenomenon that motivates restart and portfolio methods
-for stochastic search: runtime distributions can be erratic, and a collection of
-bounded searches can dominate one uninterrupted trajectory [@luby1993optimal;
-@gomes2000heavytailed; @aiex2007tttplots; @fischetti2014erraticism;
-@weise2019betandrun]. In this challenge, however, every portfolio member also had
-to preserve an exact, current-instance validation path.
+- a mutable working state that could traverse neutral or temporarily worse
+  configurations; and
+- an immutable best-valid incumbent that remained independently returnable.
+
+The practical consequence was to preserve enough time and state for the solver to
+finish its own work: validate the best available candidate, terminate descendants,
+clean up its process tree, and return before the deadline.
 
 # 2. Final solver architecture
 
-Candidate 23 was a deterministic, current-run portfolio. It did not select from
-stored historical solutions. Every worker solved the current input, published
-only complete candidates, and competed through a small atomic incumbent protocol.
-The parent process returned only a candidate that passed the organizer checker.
+The final solver was deterministic at the orchestration level given a completed
+structural-feature estimate, and current-run at
+the evidence level. It did not retrieve historical hidden solutions. Every worker
+solved the current input, published only complete candidates, and competed through
+a small durable incumbent protocol. A parent process returned only a candidate
+that passed the organizer-provided checker.
 
-## 2.1 Regime gate
+## 2.1 Structural regime gate
 
-The parent derived cheap structural features from the input, including block count
-and a pressure proxy. It used those features only to choose between two previously
-validated process topologies.
+The parent derived two cheap structural features: block count and an offered-load
+pressure ratio
 
-**Lower-pressure topology**
+```text
+pressure = sum_i(min_orientation_area_i * processing_time_i)
+           / (total_bay_area * (max_due_date - min_release_time))
+```
 
-- protected floor worker using two CPUs;
-- calendar worker using one CPU;
+The high-pressure topology was eligible only when `pressure >= 0.70` and the
+instance contained at least `250` blocks; otherwise the lower-pressure topology
+was used. A memory estimate could also force the lower-pressure path. These were
+frozen deployment thresholds derived from the project's supplied-instance
+measurements. The report does **not** claim that this gate is an optimal algorithm
+selector or that hidden evaluation isolates its causal contribution; it chooses
+between two fixed CPU configurations whose contention behavior had been measured
+locally.
+
+### Lower-pressure topology
+
+- protected feasible path using two CPUs;
+- calendar solver using one CPU;
 - calendar-seeded joint-repair worker using one CPU.
 
-**High-pressure topology**
+### High-pressure topology
 
 - scored constructor using one CPU;
-- calendar worker using one CPU;
-- calendar-first repair worker using one CPU;
-- C2PM calendar-and-geometry worker using one CPU.
+- calendar solver using one CPU;
+- calendar-first joint-repair worker using one CPU;
+- calendar-and-geometry causal-repair worker using one CPU.
 
-The gate did not predict a winner among arbitrary algorithms. It selected between
-two fixed deployment configurations. That distinction limited feature leakage and
-made fallback behavior auditable.
+This correction matters conceptually: the final solver did **not** run all five
+roles simultaneously. It selected one four-core topology per instance.
 
-## 2.2 Protected floor and early feasibility
+## 2.2 Protected feasible path
 
-The floor solver descended from the strongest previously organizer-tested
-submission. Its primary job was to preserve a validated solution path while later
-workers attempted more structural changes. In the lower-pressure regime, it owned
-two CPUs because its anytime depth remained valuable and because replacing its
-compute with a weak fourth lane had regressed measured outcomes.
+The lower-pressure topology retained a two-core path descended from the strongest
+previously organizer-tested solver. Its primary role was to preserve a validated
+solution trajectory while other workers attempted more structural changes.
+Constructive placement, cached forbidden maps, bounded local search, and defensive
+deadline handling kept an incumbent accessible even after exceptions or late
+alarms.
 
-The floor used constructive placement, cached forbidden maps, bounded local
-search, and defensive deadline handling. It maintained a module-level incumbent
-that could survive exceptions and late alarms. The final parent still rechecked
-its output; the floor's internal validation was not accepted on trust.
+The path's internal validation was not accepted on trust. Its output still passed
+through the same parent-level checker boundary as every other worker proposal.
 
 ## 2.3 Scored constructor
 
-The high-pressure constructor emphasized objective-bearing feasibility rather than
-merely placing the easiest next block. Its ordering and candidate scoring used
-release dates, duration, due dates, bay preferences, workload effects, and spatial
-availability. It streamed improving incumbents during execution instead of
-publishing only its terminal state.
+In the high-pressure topology, a one-core constructor emphasized
+objective-bearing feasibility rather than simply placing the easiest next block.
+Its ordering and candidate scoring combined release dates, durations, due dates,
+bay preferences, workload effects, and spatial availability. It streamed improving
+complete incumbents during execution instead of publishing only its terminal
+state.
 
-Streaming mattered because process termination near the deadline was expected.
-A worker could be killed after publishing a useful intermediate result without
+Streaming mattered because process termination near the deadline was expected. A
+worker could be stopped after publishing a useful current-run solution without
 losing all of its work.
 
 ## 2.4 Calendar solver
 
-The calendar lane generated a temporal assignment before full geometric
-realization. It was valuable because it could expose lower-tardiness structure
-that a placement-first greedy policy never visited. The calendar itself was not
-accepted as a solution. It published a complete realized candidate when possible
-and also exposed a bounded calendar channel for a repair consumer.
+The calendar lane produced a temporal assignment before full geometric
+realization. It could expose lower-tardiness temporal structure that a
+placement-first policy never visited. The calendar itself was never treated as a
+solution. It published a complete realized candidate when possible and exposed a
+bounded calendar channel for a repair consumer.
 
-The implementation treated that channel separately from the global incumbent.
-A calendar could be worse than the current best complete solution yet still
-contain a useful structural seed for joint repair.
+That channel was separate from the global incumbent. A calendar candidate could be
+worse than the current best complete schedule and still contain a useful temporal
+seed for joint repair.
 
-## 2.5 Calendar-first joint repair
+## 2.5 Joint space-time repair
 
 The repair lane replayed a current complete solution into a mutable model, removed
-a coherent set of blocks, enumerated alternative space-time columns against the
-frozen outside background, and solved a small exact selection problem. It retained
-only a strict checker-valid improvement.
+a coherent set of blocks, and enumerated concrete space-time alternatives against
+the frozen outside background. A single-threaded CP-SAT subproblem then chose
+exactly one alternative column per removed block, prohibited pairwise-conflicting
+columns and prior no-good combinations, and minimized the weighted tardiness,
+preference, and bay-load imbalance term over that bounded neighborhood. The materialized
+result was retained only after a strict checker-valid improvement.
 
-The neighborhood was causal rather than purely geometric. Candidate blocks could
-be selected because they contributed to tardiness, preference loss, spatial
-obstruction, or a calendar-realization failure. The exact subproblem did not claim
-to solve the global challenge. It coordinated a bounded set of alternatives that
-sequential regret repair could miss.
+The neighborhood was causal rather than purely geometric. Blocks could be selected
+because they contributed to tardiness, preference loss, spatial obstruction, or a
+calendar-realization failure. The exact subproblem coordinated a bounded set of
+alternatives that sequential regret repair could miss.
 
-## 2.6 C2PM plus causal repair
+The high-pressure calendar-and-geometry repair worker began from a coupled
+calendar/placement
+seed and then applied causal joint repair. Its working state could cross neutral or
+temporarily worse arrangements while the returned best remained protected. This
+allowed search across disconnected basins without exposing an inferior return.
 
-The fourth high-pressure worker began from a coupled calendar/placement seed and
-then applied joint repair. Its purpose was to cross barriers that required several
-coordinated changes. The working state could traverse neutral or temporarily
-worse checker-valid arrangements while an immutable best-known return state was
-preserved.
+## 2.6 Atomic incumbent protocol and checker boundary
 
-That separation between **working state** and **returned best** was essential.
-Ordinary strict descent protects quality but can make the search graph
-disconnected. Allowing controlled non-record transitions can reach another basin,
-but only if the returned incumbent is independently protected.
-
-## 2.7 Atomic incumbent protocol
-
-Workers published records of the form:
+Workers published records containing:
 
 ```text
 schema version
@@ -228,54 +239,50 @@ complete solution
 metadata
 ```
 
-Writes used same-directory temporary files, `fsync`, and atomic replacement.
-A stable companion lock serialized publishers. A record replaced the incumbent
-only when its objective was strictly lower, except for a narrow equal-objective
-case that replaced a partial record with a final validated record.
+Writes used same-directory temporary files, `fsync`, and atomic replacement. A
+stable companion lock serialized publishers. A record replaced the incumbent only
+when its objective was strictly lower, except for a narrow equal-objective case
+that replaced a partial record with a final validated record.
 
 The protocol rejected nonfinite objectives, corrupt JSON, and incomplete solution
-records. It supported recovery after a partial file and preserved a generation
+records. It supported recovery after a partial file and retained a generation
 history during private testing.
 
-## 2.8 Organizer-checker selection
-
-The parent did not infer feasibility from worker provenance. It loaded each
-candidate and called the organizer-provided checker. A candidate without an exact
-objective or with any feasibility failure was discarded. The parent selected the
-lowest objective among current-run valid candidates.
-
-This produced a clean trust boundary:
+The parent did not infer feasibility from worker identity. It loaded each candidate
+and called the organizer checker. A proposal without a valid objective or with any
+feasibility failure was discarded. The parent selected the lowest objective among
+valid current-run candidates.
 
 ```text
 worker proposal -> durable record -> organizer checker -> parent selection
 ```
 
-The emergency path generated or recovered a feasible fallback when ordinary
-workers failed to publish in time. Deadline reserves protected final parsing,
-checking, selection, and process cleanup.
+An emergency path generated or recovered a feasible fallback if ordinary workers
+failed to publish in time. Deadline reserves protected final parsing, checking,
+selection, and process cleanup.
 
-## 2.9 Native geometry kernel
+## 2.7 Native geometry kernel
 
-The hottest primitive constructed a feasible anchor map from multilayer block
-masks and forbidden occupancy. The submitted solver used a CPython 3.12 Linux
-extension. The public source release includes a C++17/pybind11 implementation that
-packs each column into a 32-bit bitset, shifts masks over candidate anchors, and
-returns a Boolean feasible map.
+The hottest primitive constructed a feasible anchor map from multilayer block masks
+and forbidden occupancy. The submitted solver used a CPython 3.12 Linux extension.
+The public source release includes a C++17/pybind11 implementation that packs each
+column into a 32-bit bitset, shifts masks over candidate anchors, and returns a
+Boolean feasible map.
 
-The native path accelerated a representation already used by the Python solver;
-it did not change challenge semantics. Python fallback remained available when
-the extension could not load. The public tests build the source and compare it
-against a direct NumPy reference on randomized multilayer cases.
+The native path accelerated an existing representation; it did not change challenge
+semantics. A Python fallback remained available when the extension could not load.
+The public tests build the source and compare it against a direct NumPy reference on
+randomized multilayer cases.
 
-# 3. Development trajectory
+# 3. Evidence that changed the architecture
 
-The private campaign contained many candidate identities. The useful story is not
-the number of variants; it is how the system model changed.
+The development history is more useful as a sequence of causal corrections than as
+a list of internal candidate numbers.
 
-## 3.1 Era I: feasibility before optimization
+## 3.1 Feasibility before optimization
 
 The first objective was to produce complete schedules consistently. Early work
-built:
+established:
 
 - deterministic constructive ordering;
 - exact checker integration;
@@ -284,49 +291,100 @@ built:
 - clean fallback behavior;
 - reproducible release packaging.
 
-The first two official submissions tied exactly. That was still useful: it showed
-that packaging and evaluation could be repeated without accidental drift. Later
-changes were evaluated against a stable operational baseline.
+The first two official evaluations established a stable operational baseline. The
+second improved one hidden instance while leaving the other five unchanged; the
+third reproduced the second vector exactly. That repeat mattered because later
+changes could be compared against a controlled deployment path rather than against
+an unstable packaging process.
 
-## 3.2 Era II: geometry as the hot path
+## 3.2 Geometry became the hot path
 
-The next bottleneck was repeated containment and collision work. The system moved
-toward cached forbidden maps, compact occupancy operations, and a compiled anchor
-primitive. The goal was not only lower primitive latency. Saved time had to produce
-more completed constructive or repair decisions before the same deadline.
+Repeated containment and collision work limited how many constructive and repair
+decisions could be completed before the deadline. The system moved toward cached
+forbidden maps, compact occupancy operations, and a compiled anchor-feasibility
+primitive.
 
-This distinction eliminated several misleading optimizations. A faster primitive
-that did not change completed search work, or changed it in a way that degraded
-the incumbent, was not promoted.
+The important measurement was not primitive speed in isolation. A faster predicate
+had value only if it produced more completed search work or a better valid
+incumbent before the same wall deadline. Several speedups were rejected because
+they did not change the useful unit of work or changed it in a way that degraded
+objective quality.
 
-## 3.3 Era III: portfolios and structural repair
+The first compiled-geometry official evaluation materially improved P3-P6. A later
+versioned forbidden-map cache was followed by another broad P3-P6 improvement in
+the official evaluation. Direct
+organizer-email reconciliation shows that this cache-era jump was much larger than
+an earlier screenshot transcription had suggested.
 
-The solver then added concurrent roles and deeper neighborhoods. The critical
-questions became:
+## 3.3 Timing-only optimization did not ensure realization
 
-- Which lane creates value that the protected floor does not already find?
-- Does communication change an actual consumer decision?
-- Does a fourth worker add marginal value after CPU contention?
-- Can a calendar seed be realized without freezing a bad geometry?
+A low-tardiness calendar was not equivalent to a realizable schedule. The decoder
+could lose its temporal gain when it encountered occupancy or crane conflicts.
+That failure shifted development away from deeper optimization of an unrealizable
+calendar alone and toward joint space-time columns, calendar-seeded repair, and
+bounded exact coordination.
 
-Several worker-sharing proposals died because the required event never occurred.
-This was a useful result: a theoretically plausible communication mechanism has
-zero value when its producer never publishes, its consumer never reads, or its
-message never changes an action.
+## 3.4 In-memory success was not durable evidence
 
-## 3.4 Era IV: barrier crossing and Candidate 23
+One earliest-entry investigation produced promising in-process behavior but could
+not reproduce the required state from persisted artifacts. The result was
+invalidated rather than promoted. The evidence rule changed: a mechanism had to
+survive exact serialization, reload, replay, and checker validation.
 
-Candidate 11 introduced causal joint repair over date, bay, orientation, anchor,
-and operation order. Candidate 14 added a best-preserving barrier-crossing working
-state and showed local records after non-record transitions. Its official hidden
-evaluation then regressed on three of six instances. That failure prevented a
-public-success narrative from replacing hidden evidence.
+This was not paperwork. The final solver itself depended on multiple processes
+communicating through files near a hard deadline. The persistence layer was part of
+the algorithmic surface.
 
-Candidate 23 preserved the strongest protected components, added a four-way
-high-pressure portfolio, and replaced one global repair lane with C2PM plus causal
-repair. Its local release gate improved selected difficult public instances while
-retaining exact validation and process cleanup. Submission 10 then produced the
-best descriptive raw six-instance sum in the ten-submission campaign.
+## 3.5 Supplied-instance improvement did not guarantee hidden transfer
+
+Here, **supplied-instance evidence** means organizer-provided development instances
+available before submission; it is distinct from the six hidden evaluation cells.
+A topology-based repair version produced strong supplied-instance evidence and was reasonable
+to submit on the information available at the time. Its official hidden evaluation
+remained feasible but regressed on P3, P4, and P6 relative to the preceding
+protected-floor version.
+
+One counterexample was enough to reject the stronger operational assumption that
+broad supplied-instance wins guaranteed hidden dominance. It did **not** identify
+a statistical "transfer ceiling," prove distribution shift, or distinguish
+overfitting from runtime variance. The later report and release therefore
+distinguish:
+
+- public-instance evidence;
+- official hidden evidence;
+- source identity;
+- runtime outcome;
+- historical stored output;
+- current-run result.
+
+This episode prevented an attractive public-success narrative from overriding the
+external evaluation.
+
+## 3.6 More workers could reduce value
+
+A fourth lane sometimes consumed CPU that the protected feasible path used more
+effectively. Post-hoc improvement of a frozen floor did not imply a win against the
+still-running floor under equal wall time. Unrestricted concurrent racing produced
+deep-instance upside but shallow-instance contention.
+
+The consequence was the structural regime gate: the final architecture used a
+four-way one-core portfolio only where pressure features indicated complementary
+value. Elsewhere, the protected path retained two CPUs.
+
+## 3.7 Opportunity preceded efficacy
+
+Several plausible mechanisms failed before a meaningful efficacy test because the
+required event did not occur often enough under their frozen opportunity gates.
+Examples included `0` specialist-eligible requests against a minimum of `3`, `0`
+exact cycle conflicts against a minimum of `2`, and a transactional replay gate
+whose `24/24` qualification executions were checker-feasible but retained `0/128`
+eligible states. Other gates found no cross-worker import opportunity, no
+remote-specific redirect, or insufficient complete-counterfactual action coverage.
+
+These were negative results about **engagement**, not broad refutations of the
+underlying research ideas. The thresholds were declared before the measured gate;
+the accepted conclusion was only that the current solver did not expose enough of
+the required event for those specific mechanisms to matter.
 
 # 4. Experimental method
 
@@ -336,14 +394,14 @@ Every release candidate was bound to source hashes, package members, and a relea
 commit. Deterministic ZIP construction fixed member order, timestamps, modes, and
 compression. A build refused missing members, extra files, or source-hash drift.
 
-This prevented a common failure mode in heuristic work: comparing a result to a
-candidate name when the actual bytes had changed.
+This prevented a common heuristic-search failure: comparing a result to a candidate
+name when the actual bytes had changed.
 
 ## 4.2 Current-run versus historical evidence
 
-A stored output could establish that a mechanism had once produced a result. It
-could not establish current runtime reliability, current package identity, or
-current process interaction. Promotion gates therefore distinguished:
+A stored output could prove that a mechanism had once produced a result. It could
+not prove current runtime reliability, current package identity, or current process
+interaction. Promotion gates therefore distinguished:
 
 - historical best output;
 - in-process current output;
@@ -354,172 +412,176 @@ The final parent selected only current-run candidates.
 
 ## 4.3 Paired and order-balanced controls
 
-Stochastic fixed-wall search varied even with a stable source. Where attribution
-mattered, experiments used paired controls, reversed order, repeated same-binary
-runs, or explicit noise envelopes. The purpose was not to eliminate all runtime
-variance. It was to avoid attributing an ordinary trajectory fluctuation to a
-code change.
+Fixed-wall stochastic search varied even with stable source. One controlled
+same-binary, back-to-back run of the same solver differed by `1.446%` in objective;
+that is one observed instability case, not a global noise-rate estimate. Where
+attribution mattered, experiments therefore used paired controls, reversed order,
+repeated same-binary runs, or explicit noise envelopes. The purpose was not to
+eliminate all runtime variance. It was to avoid attributing an ordinary trajectory
+fluctuation to a code change.
 
-## 4.4 Opportunity-first gates
+Random restarts and portfolio allocation are well established responses to
+heavy-tailed or erratic search behavior [@luby1993optimal; @gomes2000heavytailed;
+@fischetti2014erraticism; @weise2019betandrun]. In this project, however, a portfolio
+was justified only when each lane produced complementary current-run value after
+contention.
 
-Before building a costly treatment, the campaign often tested whether its required
-event existed. Examples included:
+## 4.4 Opportunity-first gates and independent review
 
-- specialist eligibility events;
-- exact reusable cycle conflicts;
-- publish/read/import events between workers;
-- remote-specific destroy redirects;
-- complete counterfactual action coverage;
-- second-candidate transactional states.
+Before building an expensive treatment, the campaign often tested whether its
+required event existed. Examples included specialist eligibility, exact reusable
+cycle conflicts, publish/read/import events between workers, remote-specific
+redirects, complete action coverage, and second transactional states.
 
-Six selected formal gates reached valid terminal kills. Each negative result
-closed a precisely frozen lane rather than inviting a new panel or threshold.
+The formal research program recorded `49` separately reviewed investigations. In
+that workflow, one investigation bound a research question to one specialist
+response, a provenance record, and a separate review record; the recommendations
+were `27` bounded tests, `13` closures, and `9` deferrals. Six selected
+opportunity-first mechanisms reached terminal kills under their frozen gates. The
+counts describe the research-control process, not independent experimental
+replicates or evidence of solver quality.
 
-![Formal research funnel and terminal sprint.](../figures/research-funnel.png){#fig:research width=92%}
+![Research and validation flow.](../figures/research-funnel.png){#fig:research width=100%}
 
-## 4.5 Independent review and scope control
+The formal workflow was strong at pruning and provenance but became too
+coordination-heavy for the last competition window. The terminal sprint moved to a
+lower-latency direct-research workflow. That is itself a process result: review
+rigor has value, but its latency must remain below the decision horizon.
 
-The formal ResearchLab campaign separated research runs, independent reviews,
-shared ledgers, and implementation authority. It planned 80 roles and completed 49
-reviewed runs through B09. The accepted reports returned 27 bounded Test
-recommendations, 13 closures, and 9 deferrals.
+# 5. Official evaluation history
 
-The campaign did not complete its original 80-role acceptance condition. It was
-closed as cancelled at 49/80 roles when the competition ended. The remaining 31
-roles were not represented as completed. Candidates 9 through 23 were developed
-through a direct terminal sprint. The retrospective conclusion is that the formal
-workflow was strong at pruning and provenance but too coordination-heavy for the
-last competition window.
+## 5.1 Evidence correction
 
-# 5. Official evaluation
+This v1.1 report corrects a load-bearing data defect in public v1.0. The earlier
+release inherited an unsupported historical matrix, and a screenshot-based private
+transcription for the fifth evaluation conflicted with the complete organizer
+email. The ten rows below were rebuilt from the completed-evaluation emails retained
+in the registered Team Smoop mailbox.
 
-## 5.1 Ten-submission record
+The final official vector, the `60/60` feasibility record, and the `28.316%`
+first-to-final descriptive reduction were already correct. The correction changes
+the intermediate trajectory and the attribution of several improvements.
 
-| Sub. | P1 | P2 | P3 | P4 | P5 | P6 | Descriptive raw sum |
+Ten successive solver versions received organizer evaluation on the same six hidden
+evaluation cells. The sequence numbers below are **chronological labels used by
+this retrospective**, not **organizer-assigned submission identifiers**. The
+organizer-issued result emails are retained privately; the public release provides
+source-level traceability and the transcribed evaluation history, not independent
+reproduction of those hidden evaluations.
+
+## 5.2 Ten-evaluation record
+
+| Eval. | P1 | P2 | P3 | P4 | P5 | P6 | Descriptive raw sum |
 |---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | 11,280 | 31,368 | 130,705 | 10,153,470 | 28,945,493 | 51,943,743 | 91,216,059 |
-| 2 | 11,280 | 31,368 | 130,705 | 10,153,470 | 28,945,493 | 51,943,743 | 91,216,059 |
-| 3 | 11,280 | 31,368 | 106,650 | 8,691,553 | 24,764,083 | 49,673,443 | 83,278,377 |
-| 4 | 11,280 | 31,368 | 107,570 | 8,231,627 | 24,608,769 | 50,085,398 | 83,076,012 |
-| 5 | 11,280 | 31,368 | 105,855 | 7,369,833 | 23,166,627 | 47,853,733 | 78,538,696 |
+| 2 | 11,280 | 31,368 | 130,705 | 9,593,960 | 28,945,493 | 51,943,743 | 90,656,549 |
+| 3 | 11,280 | 31,368 | 130,705 | 9,593,960 | 28,945,493 | 51,943,743 | 90,656,549 |
+| 4 | 11,280 | 31,368 | 123,880 | 7,992,878 | 26,711,863 | 50,955,045 | 85,826,314 |
+| 5 | 11,280 | 31,368 | 105,855 | 7,215,499 | 22,333,093 | 47,073,282 | 76,770,377 |
 | 6 | 11,280 | 31,368 | 105,855 | 7,215,499 | 22,243,379 | 47,073,282 | 76,680,663 |
-| 7 | 11,280 | 31,368 | 103,065 | 7,136,168 | 17,492,599 | 41,698,677 | 66,473,157 |
+| 7 | 11,280 | 31,368 | 103,065 | 7,136,114 | 17,492,603 | 41,698,677 | 66,473,107 |
 | 8 | 11,280 | 31,368 | 103,065 | 6,187,873 | 17,447,412 | 41,698,677 | 65,479,675 |
-| 9 | 11,280 | 31,368 | 103,065 | 7,160,951 | 17,449,131 | 43,769,078 | 68,524,873 |
+| 9 | 11,280 | 31,368 | 110,230 | 6,368,452 | 17,447,412 | 41,939,247 | 65,907,989 |
 | 10 | 11,280 | 31,368 | 103,065 | 6,464,170 | 16,443,998 | 42,333,422 | 65,387,303 |
 
-All ten official evaluations returned six feasible outputs. The campaign therefore
-finished with **60/60** feasible hidden outputs and no observed crash, timeout, or
-infeasibility penalty.
+All ten result emails reported six feasible outputs. The campaign therefore ended
+with **60/60 feasible hidden-instance executions** and no observed crash, timeout,
+or infeasibility penalty.
 
 The first-to-final descriptive raw sum decreased by **28.316%**. That aggregate is
-**not the competition score**. The competition ranked teams per instance, so the
-location of a gain or regression mattered independently of its contribution to a
-simple six-instance sum.
+**not the competition score**. Official scoring ranked teams independently on each
+instance, so the competitive effect depended on field values and where gains or
+regressions occurred.
 
-![Official submission progression.](../figures/submission-progression.png){#fig:results width=100%}
+![Official evaluation history.](../figures/submission-progression.png){#fig:progression width=100%}
 
-## 5.2 What the progression shows
+## 5.3 What the corrected trajectory shows
 
-Three features are more informative than a monotone-success story.
+The sequence below is an externally observed deployment history, **not an ablation
+study**. A change that precedes an official improvement is not, by that chronology
+alone, proven to have caused it. Mechanism-level causal claims in this report rely
+on separate local controls where available; the official rows establish only what
+each submitted package returned.
 
-First, Submission 4 reduced P4 and P5 but regressed P3 and P6 enough that the
-aggregate barely changed. A feature can help one structural regime while harming
-another.
+Four features are more informative than a monotone-success story.
 
-Second, Submission 9 was locally promoted after Candidate 14 produced strong
-public results. The hidden evaluation regressed P4, P5, and P6 relative to
-Submission 8. Public breadth was not a reliable substitute for hidden transfer.
+First, the second evaluation improved only P4, and the third repeated it exactly.
+That establishes both a targeted hidden gain and deployment repeatability.
 
-Third, Submission 10 did not dominate Submission 8 instance by instance. It
-improved P5 substantially, worsened P4 and P6, and tied P1-P3. Its descriptive raw
-sum was lower, but the competitive effect depended on the field's hidden values.
+Second, the fourth and fifth evaluations followed releases dominated by geometry
+and cache work and each improved P3-P6; the fifth reduced the descriptive raw sum
+by 10.551% relative to the fourth. That chronology is consistent with the local
+controlled evidence for those mechanisms, but the hidden before/after rows do not
+isolate a single cause. The sixth then tied five instances and improved only P5.
+The prior transcription had incorrectly assigned much of the fifth evaluation's
+gain to the sixth.
+
+Third, the seventh produced the largest later aggregate step, with broad P3-P6
+improvements, and the eighth concentrated additional gain in P4 and P5. These rows
+are deployment outcomes; the stage names in the provenance appendix are
+retrospective lineage labels rather than causal assignments by the organizer.
+
+Fourth, the ninth was the clearest supplied-to-hidden transfer counterexample: it
+regressed P3, P4, and P6 relative to the eighth. The final solver then improved P3
+and P5 relative to the ninth while worsening P4 and P6. Its descriptive raw sum
+was the lowest of the ten, but it did not dominate the eighth instance by
+instance.
+
+P1 and P2 were unchanged across all ten evaluations. The preserved result emails do
+not expose enough hidden-instance diagnostics to determine whether that constancy
+reflects optimality, routing stability, or lack of improvement opportunity, so the
+report does not infer a cause.
 
 The **exact final preliminary-round rank was not preserved** in the available
-official records. This report therefore makes no rank, award, or optimality claim.
+official records. This report makes no rank, award, or optimality claim.
 
-# 6. Negative results that changed the system
+# 6. Contributions and AI-assisted development
 
-## 6.1 Timing-only optimization did not ensure realization
-
-A low-tardiness calendar was not equivalent to a realizable solution. The decoder
-could lose its temporal gain when it encountered occupancy or crane conflicts.
-This motivated joint space-time columns and repair rather than deeper optimization
-of an unrealizable calendar alone.
-
-## 6.2 In-memory success was not durable evidence
-
-One earliest-entry investigation produced promising in-process behavior but could
-not reproduce the required state from persisted artifacts. It was invalidated,
-not promoted. This changed the evidence rule: a mechanism had to survive exact
-serialization, reload, replay, and checker validation.
-
-## 6.3 Several plausible mechanisms had zero opportunity
-
-Formal gates found zero useful events for exact cycle reuse, cross-worker restart
-import, remote-specific destroy guidance, and two-candidate transactional capture.
-The correct conclusion was not that the broader research fields were invalid. It
-was that the accepted solver did not expose enough of the required event for those
-specific mechanisms to matter.
-
-## 6.4 More workers could reduce value
-
-A fourth lane sometimes consumed CPU that the floor used more effectively.
-Post-hoc improvement of a frozen floor state did not imply a win against the
-still-running floor under equal wall time. The final architecture retained a
-four-way portfolio only in the high-pressure regime where the alternative roles
-had measured complementary value.
-
-## 6.5 Public improvement did not guarantee hidden transfer
-
-Candidate 14 was the clearest calibration event. Its local gate was strong enough
-to justify submission, but the hidden vector regressed relative to the protected
-Submission 8 floor. The consequence was not to dismiss local testing. It was to
-reduce confidence in public-cell breadth as a rank forecast and to preserve a more
-explicit transfer boundary in the final report.
-
-# 7. Contributions and AI-assisted development
-
-## 7.1 Kevin Yin's role
+## 6.1 Kevin Yin's role
 
 Kevin Yin retained responsibility for:
 
 - decomposing the challenge into geometry, scheduling, crane, reliability, and
   search surfaces;
-- selecting solver architecture and candidate lineages;
+- selecting solver architectures and candidate lineages;
 - defining research questions, experiment gates, promotion criteria, and rollback
   rules;
 - interpreting local and official evidence;
-- deciding which package to submit;
+- deciding which exact package to submit;
 - deciding when to stop the campaign;
-- producing and approving the final public narrative.
+- approving the public claim boundary and final narrative.
 
-## 7.2 AI assistance
+## 6.2 AI assistance
 
-**AI systems materially assisted** literature synthesis, source inspection,
-implementation, test construction, experiment execution support, adversarial
-review, evidence normalization, and documentation. Multiple agents or models were
-used for independent perspectives, but model agreement was never treated as
-empirical validation. The accepted checker, frozen artifacts, measured runs, and
-human promotion decisions remained the governing evidence.
+AI systems were used throughout literature synthesis, source inspection,
+implementation, test construction, experiment-execution support, adversarial
+review, evidence normalization, and documentation. The project did not preserve a
+defensible source-level percentage that would separate "AI-written" from
+"human-written" code, so this report does not invent one. Multiple agents and
+models were used to obtain independent perspectives, but model agreement was never
+treated as empirical validation. Accepted checker results, frozen artifacts,
+measured runs, and Kevin Yin's promotion/submission decisions remained the
+governing evidence.
 
-The competition explicitly allowed AI-assisted development while assigning
-quality and correctness responsibility to participants. This report treats that
-assistance as part of the engineering process rather than hiding it or presenting
-it as an autonomous authorship claim.
+The competition explicitly allowed AI-assisted development while assigning quality
+and correctness responsibility to participants. This report presents that
+assistance as part of the engineering process rather than hiding it or claiming
+autonomous authorship.
 
-## 7.3 Organizer-provided authority
+## 6.3 Organizer-provided authority
 
 The challenge formulation, instances, official checker, evaluation environment,
-and hidden evaluations belonged to the organizer. This public repository does not
+and hidden evaluations belonged to the organizer. The public repository does not
 redistribute those materials. Source files import the organizer's `utils` module
-when used inside the challenge environment.
+when executed inside the challenge environment.
 
-# 8. Reproducibility boundary
+# 7. Reproducibility boundary
 
-The public source release contains the seven Python files included in the final
-submission, byte-identical to their frozen private versions. It also contains the
-C++/pybind11 geometry-kernel source and a randomized equivalence test.
+The public release provides **source traceability and component-level
+reproducibility**, not independent reproduction of the organizer's hidden results.
+It contains the seven Python files included in the final submitted package,
+byte-identical to their frozen private versions, plus the C++/pybind11
+geometry-kernel source and randomized equivalence tests.
 
 The following are intentionally absent:
 
@@ -529,57 +591,83 @@ The following are intentionally absent:
 - compiled Linux CPython 3.12 extension;
 - private emails, certificate, screenshots, and raw experiment corpora.
 
-The exact private ZIP and binary are identified by SHA-256 in the source manifest.
-A byte-for-byte reproduction of the submitted native extension is not claimed,
-because the full original container identity was not preserved. The source can be
-rebuilt and behaviorally tested, but that is a narrower claim.
+The exact private ZIP and submitted binary are identified by SHA-256 in the source
+manifest. A byte-for-byte reproduction of the submitted native extension is not
+claimed because the complete original build-container identity was not preserved.
+The source can be rebuilt and behaviorally tested; that is a narrower claim.
 
-# 9. Generalizable lessons
+The corrected result CSV is generated from an immutable in-repository matrix whose
+private authority is the direct organizer-email reconciliation. Consecutive asset
+and report builds are required to be byte-identical before release.
+
+# 8. Generalizable lessons
 
 1. **Feasibility is an architectural invariant.** It cannot be added as a final
-   validation step to a search that routinely destroys the only return path.
+   validation step to a search that routinely destroys its only return path.
 2. **The useful unit is the coupled decision.** Optimizing schedule, geometry, or
    worker communication in isolation often changes no valid endpoint.
-3. **Opportunity precedes efficacy.** Before building a sophisticated selector,
-   prove that multiple meaningful actions occur often enough to justify it.
-4. **Current-run evidence outranks stale excellence.** A historical output is not
-   a current package, runtime, or cleanup guarantee.
+3. **Opportunity precedes efficacy.** Before building a sophisticated selector or
+   communication channel, prove that multiple meaningful actions occur often enough
+   to justify it.
+4. **Current-run evidence outranks stale excellence.** A historical output is not a
+   current package, runtime, or cleanup guarantee.
 5. **Negative experiments are capital.** A valid kill narrows the system and
-   protects the final sprint from repeatedly attractive ideas.
+   protects the terminal sprint from repeatedly attractive ideas.
 6. **Reliability consumes budget.** Process startup, serialization, checking,
    cleanup, and fallback reserves are part of the optimization algorithm.
-7. **Public validation has a transfer ceiling.** Broad local wins can justify a
-   submission, but they do not establish hidden superiority.
+7. **Supplied-instance validation is evidence, not a guarantee.** Broad local wins
+   can justify a submission, but they do not establish hidden superiority.
 8. **Research governance has latency.** Heavy review can improve decisions while
-   becoming unsuitable for a deadline-critical terminal phase; the workflow needs
-   a lower-latency mode rather than blind continuation.
+   becoming unsuitable for a deadline-critical terminal phase.
+9. **Evidence reconciliation must reach the direct source.** A polished report and
+   passing test suite can still preserve a wrong historical matrix if they verify
+   only internal consistency.
 
 # Conclusion
 
 The Grand Shipyard campaign evolved from a feasible constructor into a
 checker-gated, current-run, multicore anytime system. The central technical shift
-was recognizing that scheduling, placement, residence, crane access, and
-objective value formed one realization problem. The central engineering shift was
-protecting a feasible incumbent while allowing specialized workers to search more
-aggressively.
+was recognizing that scheduling, placement, residence, crane access, objective
+value, and runtime reliability formed one realization problem. The central
+engineering shift was protecting a returnable incumbent while allowing specialized
+workers to search more aggressively.
 
-Candidate 23 closed the project with six feasible official outputs, a 60/60
+The final solver closed the campaign with six feasible official outputs, a `60/60`
 campaign feasibility record, and the lowest descriptive raw six-instance sum of
-the ten submissions. The project does not support a stronger statement about
-rank, optimality, or universal transfer. Its durable contribution is the solver
+the ten chronological evaluations. The project does not support a stronger claim
+about rank, optimality, or universal transfer. Its durable contribution is the
 architecture, the evidence discipline around it, and the negative results that
 made the final system smaller and more reliable.
 
-# Artifact identities
+The title is literal in more than one direction. A shipyard block can obstruct a
+future EXIT if placement ignores crane access. An optimization process can block
+its own exit too: aggressive search that destroys its only valid incumbent or
+consumes the time reserved for checking and cleanup has converted optional upside
+into operational failure. The final architecture was built to keep both exits
+clear—a realizable route for the blocks and an independently returnable route for
+the solver. Project closeout followed the same discipline: preserve the evidence,
+leave a clean handoff, and stop before continuation becomes its own obstruction.
+
+# Provenance appendix
+
+Internal identifiers are retained here for exact traceability rather than used as
+the conceptual vocabulary of the main report.
+
+| Semantic stage | Internal development identity | Purpose |
+|---|---|---|
+| Joint space-time repair lineage | Candidate 11 | Calendar-and-geometry repair and causal neighborhoods |
+| Topology-based repair experiment | Candidate 14 | Public-success / hidden-transfer counterexample |
+| Current-run portfolio lineage | Candidate 19 | Independent worker portfolio and incumbent protocol |
+| Final solver | Candidate 23 | Terminal frozen architecture; retrospective evaluation label 10 |
 
 | Artifact | Identity |
 |---|---|
-| Candidate 23 private release commit | `731b3ca9a59c898f4b097e95b75f43336ccb55ee` |
-| Candidate 23 private release tag | `candidate23-release-20260727` |
+| Final private release commit | `731b3ca9a59c898f4b097e95b75f43336ccb55ee` |
+| Final private release tag | `candidate23-release-20260727` |
 | Private submission ZIP SHA-256 | `0b3442ebc2513cd0bedece780f33331f719293513667f075bb3cface08c4cf4e` |
 | Submitted native extension SHA-256 | `a1f0309bc7d30a6482528bf9a6b52107e02e622365a33c1517d65fbaa1636737` |
-| Puzzle closeout commit | `c38042b48e6d7cc2ad53cd56a4f5aa7d3e6c6059` |
-| Puzzle closeout tag | `ogc2026-closeout-v1.0` |
-| Public release | `v1.0.0` |
+| Private evidence-correction commit | `7841de97e22ce753667abfa236f76836c57511d3` |
+| Private evidence-correction tag | `ogc2026-evaluation-history-erratum-v1.0` |
+| Public release | `v1.1.0` |
 
 # References
