@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-WORKERS_PATH = ROOT / "solver/submission-10/c19_workers.py"
+WORKERS_PATH = ROOT / "solver/final-release/c19_workers.py"
 
 
 def load_workers(name):

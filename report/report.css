@@ -197,11 +197,12 @@ li {
 }
 
 #refs {
-  font-size: 8.6pt;
+  font-size: 7.8pt;
+  line-height: 1.22;
 }
 
 .csl-entry {
-  margin-bottom: 0.08in;
+  margin-bottom: 0.045in;
   padding-left: 0.22in;
   text-indent: -0.22in;
 }
